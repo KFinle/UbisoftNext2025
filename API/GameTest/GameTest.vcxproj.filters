@@ -54,6 +54,7 @@
     <ClInclude Include="miniaudio\miniaudio.h">
       <Filter>API\third_party\miniaudio</Filter>
     </ClInclude>
+    <ClInclude Include="Components.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="API">
