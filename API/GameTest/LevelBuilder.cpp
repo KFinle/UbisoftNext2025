@@ -1,87 +1,134 @@
 #include "stdafx.h"
-#include <iostream>
-#include <vector>
-#include <fstream>
-#include "App/app.h"
+#include "Collider.h"
+#include <ctime>
+#include <string>
+#include "LevelBuilder.h"
+#include "App/AppSettings.h"
 
-// RGB struct to store pixel data
-struct RGB {
-    int r, g, b;
-};
+namespace LevelBuilder
+{
+  int Level::currentLevel = 1;
+    Level::Level() {}
 
-// Load BMP image and return pixel data (simplified version)
-std::vector<RGB> LoadBMP(const std::string& filename, int& width, int& height) {
-    std::ifstream file(filename, std::ios::binary);
 
-    if (!file) {
-        std::cerr << "Error loading BMP file" << std::endl;
-        return {};
+    Level::Level(const Vector2& spawn, const GameObject& goalObject)
+    {
+        this->spawnPoint = spawn;
+        this->goalPoint = goalObject;
     }
 
-    // Read header data (simplified, assumes 24-bit BMP)
-    file.seekg(18);
-    file.read(reinterpret_cast<char*>(&width), sizeof(width));
-    file.read(reinterpret_cast<char*>(&height), sizeof(height));
+    void Level::AddObject(GameObject& object)
+    {
+        levelObjects.push_back(object);
+    }
 
-    // Skip to pixel data (simplified)
-    file.seekg(54); // BMP header is 54 bytes
+    void Level::DrawObjects()
+    {
+      App::Print(0, APP_VIRTUAL_HEIGHT - 20, "Current Level: ", 1,1,0);
+      App::Print(130, APP_VIRTUAL_HEIGHT - 20, std::to_string(currentLevel).c_str(), 1,1,0);
+        for (GameObject obj : levelObjects)
+        {
+          if (obj.type == ShapeType::GOAL)
+          {
+              if (Component::CircleCollider* circle = dynamic_cast<Component::CircleCollider*>(obj.collider))
+              {
+                  circle->DrawGoal();
+              }
+          }
+          else 
+          {
+              obj.collider->Draw();
+          }
+        }
+    }
 
-    std::vector<RGB> pixels(width * height);
-    file.read(reinterpret_cast<char*>(pixels.data()), pixels.size() * sizeof(RGB));
+    bool Level::IsOverlapping(Component::Collider* newCollider)
+    {
+        for (const GameObject& obj : levelObjects)
+        {
 
-    return pixels;
-}
+            if (obj.collider->CollisionDetected(*newCollider))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
 
-// Define the color codes for each level object
-enum class LevelObject {
-    None,       // Empty space
-    Obstacle,   // Wall or obstacle
-    Patch,      // Physics patch (boost, friction)
-    Goal        // Goal area
-};
+    Level Level::GenerateLevel(int numObjects)
+    {
+        const float minGap = 50.0f;
+        std::srand(std::time(nullptr));
 
-LevelObject GetLevelObjectFromColor(const RGB& color) {
-    if (color.r == 255 && color.g == 0 && color.b == 0) return LevelObject::Obstacle;   // Red
-    if (color.r == 0 && color.g == 255 && color.b == 0) return LevelObject::Patch;      // Green
-    if (color.r == 0 && color.g == 0 && color.b == 255) return LevelObject::Goal;       // Blue
-    return LevelObject::None;
-}
+        // Spawn point
+        Vector2 spawnPoint(std::rand() % APP_VIRTUAL_WIDTH, std::rand() % (APP_VIRTUAL_HEIGHT/5) + 10);
+        Component::CircleCollider* spawnPointCollider = new Component::CircleCollider(spawnPoint, 50);
+        GameObject spawn(ShapeType::NONE, spawnPointCollider);
 
-void BuildLevelFromImage(const std::vector<RGB>& pixels, int width, int height) {
-    // Loop through all pixels and create corresponding objects
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            RGB pixel = pixels[y * width + x];
-            LevelObject objType = GetLevelObjectFromColor(pixel);
+        // Goal object
+        Vector2 goalPosition(std::rand() % APP_VIRTUAL_WIDTH, std::rand() % APP_VIRTUAL_HEIGHT/2 + 300);
+        float goalRadius = 30.0f;
 
-            // Based on the object type, place it in the level
-            switch (objType) {
-                case LevelObject::Obstacle:
-                    std::cout << "Found obstacle at (" << x << ", " << y << ")\n";
-                    // Create obstacle at this position
+        Component::CircleCollider* goalCollider = new Component::CircleCollider(goalPosition, goalRadius, true);
+        GameObject goal(ShapeType::GOAL, goalCollider);
+
+        Level level(spawnPoint, goal);
+        level.AddObject(goal);
+
+        // Random shapes
+        for (int i = 0; i < numObjects; i++ )
+        {
+            ShapeType type = static_cast<ShapeType>(std::rand() % 2);
+            Component::Collider* collider = nullptr;
+            GameObject newObject;
+
+            switch (type)
+            {
+                case ShapeType::BOX:
+                {
+                    Vector2 position(std::rand() % APP_VIRTUAL_WIDTH, std::rand() % APP_VIRTUAL_HEIGHT);
+                    Vector2 dimensions(std::rand() % 100 + 30 , std::rand() % 100 + 30);
+                    collider = new Component::BoxCollider(position, dimensions);
+                    newObject = GameObject(type, collider);
                     break;
-                case LevelObject::Patch:
-                    std::cout << "Found patch at (" << x << ", " << y << ")\n";
-                    // Create physics patch at this position
+                }
+                case ShapeType::CIRCLE:
+                {
+                    Vector2 position(std::rand() % APP_VIRTUAL_WIDTH, std::rand() % APP_VIRTUAL_HEIGHT);
+                    float radius = std::rand() % 100 + 30;
+                    collider = new Component::CircleCollider(position, radius);
+                    newObject = GameObject(type, collider);
                     break;
-                case LevelObject::Goal:
-                    std::cout << "Found goal at (" << x << ", " << y << ")\n";
-                    // Create goal at this position
-                    break;
+                }
                 default:
                     break;
             }
+            // Ensure no overlap with existing objects + maintain minimum gap
+            bool hasSufficientGap = true;
+            for (const GameObject& obj : level.levelObjects)
+            {
+                float distance = Vector2::Distance(obj.collider->position, collider->position);
+                float combinedRadii = obj.collider->GetBoundingRadius() + collider->GetBoundingRadius() + minGap;
+
+                if (distance < combinedRadii)
+                {
+                    hasSufficientGap = false;
+                    break;
+                }
+            }
+
+            if (hasSufficientGap && !level.IsOverlapping(collider) && !collider->CollisionDetected(*spawnPointCollider))
+            {
+                level.AddObject(newObject);
+            }
+            else
+            {
+                delete collider;
+                collider = nullptr;
+            };
         }
+
+        delete spawnPointCollider;
+        return level;
     }
-}
-
-int main() {
-    int width, height;
-    std::vector<RGB> pixels = LoadBMP("level.bmp", width, height);
-
-    if (!pixels.empty()) {
-        BuildLevelFromImage(pixels, width, height);
-    }
-
-    return 0;
 }

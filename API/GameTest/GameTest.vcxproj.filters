@@ -24,6 +24,15 @@
     <ClCompile Include="miniaudio\miniaudio.cpp">
       <Filter>API\third_party\miniaudio</Filter>
     </ClCompile>
+    <ClCompile Include="Golfball.cpp" />
+    <ClCompile Include="GolfClub.cpp" />
+    <ClCompile Include="GolfMath.cpp" />
+    <ClCompile Include="LevelBuilder.cpp" />
+    <ClCompile Include="ShapeRenderer.h" />
+    <ClCompile Include="Vector2.cpp" />
+    <ClCompile Include="Components.cpp" />
+    <ClCompile Include="Collider.cpp" />
+    <ClCompile Include="SpriteRenderer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h" />
@@ -55,6 +64,13 @@
       <Filter>API\third_party\miniaudio</Filter>
     </ClInclude>
     <ClInclude Include="Components.h" />
+    <ClInclude Include="Golfball.h" />
+    <ClInclude Include="GolfClub.h" />
+    <ClInclude Include="GolfMath.h" />
+    <ClInclude Include="Vector2.h" />
+    <ClInclude Include="Collider.h" />
+    <ClInclude Include="SpriteRenderer.h" />
+    <ClInclude Include="LevelBuilder.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="API">
